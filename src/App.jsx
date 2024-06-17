@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardHeader,
@@ -10,12 +10,34 @@ import "./App.css";
 
 function App() {
   const [stats, setStats] = useState(null);
+  const [countdown, setCountdown] = useState(10);
+  const timerRef = useRef(null);
 
-  useEffect(() => {
+  const fetchStats = () => {
     fetch("https://en.wikipedia.org/w/api.php?action=query&format=json&meta=siteinfo&siprop=statistics&origin=*")
       .then(response => response.json())
       .then(data => setStats(data.query.statistics))
       .catch(error => console.error("Error fetching Wikipedia stats:", error));
+  };
+
+  const resetTimer = () => {
+    setCountdown(10);
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === 1) {
+          fetchStats();
+          return 10;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    fetchStats();
+    resetTimer();
+    return () => clearInterval(timerRef.current);
   }, []);
 
   return (
@@ -37,6 +59,10 @@ function App() {
           ) : (
             <p>Loading...</p>
           )}
+          <div>
+            <p>Next refresh in: {countdown} seconds</p>
+            <Button onClick={resetTimer}>Refresh Now</Button>
+          </div>
         </CardContent>
       </Card>
     </div>
