@@ -20,7 +20,10 @@ function App() {
       .catch(error => console.error("Error fetching Wikipedia stats:", error));
   };
 
-  const resetTimer = () => {
+  const resetTimer = (manual = false) => {
+    if (manual) {
+      fetchStats();
+    }
     setCountdown(10);
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -61,7 +64,7 @@ function App() {
           )}
           <div>
             <p>Next refresh in: {countdown} seconds</p>
-            <Button onClick={resetTimer}>Refresh Now</Button>
+            <Button onClick={() => resetTimer(true)}>Refresh Now</Button>
           </div>
         </CardContent>
       </Card>
