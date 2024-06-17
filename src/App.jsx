@@ -7,6 +7,10 @@ import {
 } from "@/components/ui/card.jsx";
 import { Button } from "@/components/ui/button.jsx";
 import { ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { Line } from "react-chartjs-2";
+import { Dialog, DialogTrigger, DialogContent, DialogTitle } from "@/components/ui/dialog.jsx";
+import { Input } from "@/components/ui/input.jsx";
+import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select.jsx";
 import "./App.css";
 
 function App() {
@@ -15,6 +19,10 @@ function App() {
   const [initialStats, setInitialStats] = useState(null);
   const [countdown, setCountdown] = useState(10);
   const [compareWith, setCompareWith] = useState("previous"); // "previous" or "initial"
+  const [selectedStat, setSelectedStat] = useState(null);
+  const [graphData, setGraphData] = useState([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(10);
   const timerRef = useRef(null);
 
   const fetchStats = () => {
@@ -26,6 +34,9 @@ function App() {
         if (!initialStats) {
           setInitialStats(data.query.statistics);
         }
+        if (selectedStat) {
+          setGraphData(prevData => [...prevData, { time: new Date(), value: data.query.statistics[selectedStat] }]);
+        }
       })
       .catch(error => console.error("Error fetching Wikipedia stats:", error));
   };
@@ -34,20 +45,40 @@ function App() {
     if (manual) {
       fetchStats();
     }
-    setCountdown(10);
+    setCountdown(refreshInterval);
     clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev === 1) {
-          fetchStats();
-          return 10;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (autoRefresh) {
+      timerRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev === 1) {
+            fetchStats();
+            return refreshInterval;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+  };
+
+  const handleStatClick = (stat) => {
+    setSelectedStat(stat);
+    setGraphData([]);
+  };
+
+  const saveSettings = () => {
+    localStorage.setItem("autoRefresh", autoRefresh);
+    localStorage.setItem("refreshInterval", refreshInterval);
   };
 
   useEffect(() => {
+    const savedAutoRefresh = localStorage.getItem("autoRefresh");
+    const savedRefreshInterval = localStorage.getItem("refreshInterval");
+    if (savedAutoRefresh !== null) {
+      setAutoRefresh(JSON.parse(savedAutoRefresh));
+    }
+    if (savedRefreshInterval !== null) {
+      setRefreshInterval(Number(savedRefreshInterval));
+    }
     fetchStats();
     resetTimer();
     return () => clearInterval(timerRef.current);
@@ -83,12 +114,12 @@ function App() {
         <CardContent>
           {stats ? (
             <div>
-              <p>Total Articles: {stats.articles} {comparisonStats && getChangeIndicator(stats.articles, comparisonStats.articles)}</p>
-              <p>Total Edits: {stats.edits} {comparisonStats && getChangeIndicator(stats.edits, comparisonStats.edits)}</p>
-              <p>Total Images: {stats.images} {comparisonStats && getChangeIndicator(stats.images, comparisonStats.images)}</p>
-              <p>Total Users: {stats.users} {comparisonStats && getChangeIndicator(stats.users, comparisonStats.users)}</p>
-              <p>Active Users: {stats.activeusers} {comparisonStats && getChangeIndicator(stats.activeusers, comparisonStats.activeusers)}</p>
-              <p>Admins: {stats.admins} {comparisonStats && getChangeIndicator(stats.admins, comparisonStats.admins)}</p>
+              <p onClick={() => handleStatClick("articles")}>Total Articles: {stats.articles} {comparisonStats && getChangeIndicator(stats.articles, comparisonStats.articles)}</p>
+              <p onClick={() => handleStatClick("edits")}>Total Edits: {stats.edits} {comparisonStats && getChangeIndicator(stats.edits, comparisonStats.edits)}</p>
+              <p onClick={() => handleStatClick("images")}>Total Images: {stats.images} {comparisonStats && getChangeIndicator(stats.images, comparisonStats.images)}</p>
+              <p onClick={() => handleStatClick("users")}>Total Users: {stats.users} {comparisonStats && getChangeIndicator(stats.users, comparisonStats.users)}</p>
+              <p onClick={() => handleStatClick("activeusers")}>Active Users: {stats.activeusers} {comparisonStats && getChangeIndicator(stats.activeusers, comparisonStats.activeusers)}</p>
+              <p onClick={() => handleStatClick("admins")}>Admins: {stats.admins} {comparisonStats && getChangeIndicator(stats.admins, comparisonStats.admins)}</p>
             </div>
           ) : (
             <p>Loading...</p>
@@ -106,8 +137,43 @@ function App() {
               </select>
             </label>
           </div>
+          <div>
+            <label>
+              Auto Refresh:
+              <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+            </label>
+            <label>
+              Refresh Interval:
+              <Input type="number" value={refreshInterval} onChange={(e) => setRefreshInterval(Number(e.target.value))} />
+            </label>
+            <Button onClick={saveSettings}>Save Settings</Button>
+          </div>
         </CardContent>
       </Card>
+      {selectedStat && (
+        <Dialog open={!!selectedStat} onOpenChange={() => setSelectedStat(null)}>
+          <DialogTrigger asChild>
+            <Button>View Graph</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogTitle>{selectedStat} Graph</DialogTitle>
+            <Line
+              data={{
+                labels: graphData.map(data => data.time.toLocaleTimeString()),
+                datasets: [
+                  {
+                    label: selectedStat,
+                    data: graphData.map(data => data.value),
+                    fill: false,
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                  }
+                ]
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
