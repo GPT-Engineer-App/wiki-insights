@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -9,22 +9,37 @@ import { Button } from "@/components/ui/button.jsx";
 import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    fetch("https://en.wikipedia.org/w/api.php?action=query&format=json&meta=siteinfo&siprop=statistics&origin=*")
+      .then(response => response.json())
+      .then(data => setStats(data.query.statistics))
+      .catch(error => console.error("Error fetching Wikipedia stats:", error));
+  }, []);
 
   return (
-    <>
+    <div className="App">
       <Card>
         <CardHeader>
-          <CardTitle>Hello world!</CardTitle>
+          <CardTitle>Live Wikipedia Statistics</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>This is an example</p>
-          <hr className="my-4" />
-          <Button onClick={() => setCount(count + 1)}>Click me</Button>
-          <div>Count: {count}</div>
+          {stats ? (
+            <div>
+              <p>Total Articles: {stats.articles}</p>
+              <p>Total Edits: {stats.edits}</p>
+              <p>Total Images: {stats.images}</p>
+              <p>Total Users: {stats.users}</p>
+              <p>Active Users: {stats.activeusers}</p>
+              <p>Admins: {stats.admins}</p>
+            </div>
+          ) : (
+            <p>Loading...</p>
+          )}
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }
 
